@@ -44,7 +44,6 @@ async function run() {
       const minPrice = parseInt(req.query?.min) || 0;
       const maxPrice = parseInt(req.query?.max) || Infinity;
 
-
       // if (minPrice && maxPrice) {
       //   const cursor =
       // }
@@ -54,11 +53,9 @@ async function run() {
       const limit = 6;
       const skip = (page - 1) * limit;
       const cursor = await apartmentsCollection
-        .find(
-          {
-            rent: { $gte: minPrice, $lte: maxPrice },
-          }
-        )
+        .find({
+          rent: { $gte: minPrice, $lte: maxPrice },
+        })
         .skip(skip)
         .limit(6)
         .toArray();
@@ -69,7 +66,6 @@ async function run() {
         totalPages: Math.ceil(totalApartments / limit),
         currentPage: page,
       });
-      
     });
 
     // Send a ping to confirm a successful connection
