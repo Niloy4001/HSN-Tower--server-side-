@@ -28,6 +28,21 @@ const client = new MongoClient(uri, {
   },
 });
 
+// middleware
+const verifyToken = (req, res, next) => {
+  if (!req.headers.authorization) {
+    return res.status(401).send({ message: "forbidden access" });
+  }
+  const token = req.headers.authorization.split(" ")[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "forbidden access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+};
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -36,7 +51,32 @@ async function run() {
     const apartmentsCollection = client
       .db("HSNTower")
       .collection("apartmentsCollection");
-    // const movies = database
+
+    const usersCollection = client.db("HSNTower").collection("users");
+
+    // jwt related api
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
+        expiresIn: "1d",
+      });
+      res.send({ token });
+    });
+
+    // post user data to db
+    app.post("/user", async (req, res) => {
+      const user = req.body;
+
+      const query = { email: user.email };
+
+      const findUser = await usersCollection.findOne(query);
+
+      if (!findUser) {
+        const result = await usersCollection.insertOne(user);
+        res.send(result);
+      }
+      return;
+    });
 
     // get all apartment data
     app.get("/apartments", async (req, res) => {
