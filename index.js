@@ -88,7 +88,9 @@ async function run() {
         const result = await usersCollection.insertOne(user);
         res.send(result);
       }
-      return;
+      else{
+        res.send({message: 'user exist'})
+      }
     });
 
     // get all apartment data
@@ -139,6 +141,25 @@ async function run() {
       // console.log(agreement);
       // console.log(finded === null);
     });
+
+    // check user role from db usercollection
+    app.get("/checkRole/:email",async (req,res)=>{
+      const email = req.params.email
+      const query = {email:email}
+      const result = await usersCollection.findOne(query)
+      res.send(result)
+      // console.log(result);
+      
+    }) 
+
+    // get member agreement data for making payment
+    app.get("/apartmentInfo/:email", async (req,res)=>{
+      const email = req.params.email
+      const query = {UserEmail:email}
+      const result = await agreementCollection.findOne(query)
+      res.send(result)
+      // console.log(result);
+    })
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
