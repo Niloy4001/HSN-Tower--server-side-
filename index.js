@@ -57,15 +57,18 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-
+    // aprtment collection
     const apartmentsCollection = client
       .db("HSNTower")
       .collection("apartmentsCollection");
-
+    // users collection
     const usersCollection = client.db("HSNTower").collection("usersCollection");
-    const agreementCollection = client
-      .db("HSNTower")
-      .collection("agreementCollection");
+
+    // agreement collection
+    const agreementCollection = client.db("HSNTower").collection("agreementCollection");
+    
+    // payments details collection
+    const paymentsCollection = client.db("HSNTower").collection("paymentsCollection");
 
     // jwt related api
     app.post("/jwt", async (req, res) => {
@@ -164,18 +167,24 @@ async function run() {
       const { price } = req.body;
       const amount = parseInt(price * 100);
 
-      const paymentIntent =await stripe.paymentIntents.create({
+      const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
-        currency: 'usd',
-        payment_method_types: ['card']
+        currency: "usd",
+        payment_method_types: ["card"],
       });
 
       res.send({
-        clientSecret: paymentIntent.client_secret
+        clientSecret: paymentIntent.client_secret,
       });
-      
-      
     });
+
+    // save payments history in db
+    app.post('/paymentsHistory',async(req,res)=>{
+      const history = req.body;
+      const resutl = await paymentsCollection.insertOne(history)
+      res.send(resutl)
+    })
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
