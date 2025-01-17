@@ -4,6 +4,7 @@ var jwt = require("jsonwebtoken");
 var cookieParser = require("cookie-parser");
 // const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
+const stripe = require("stripe")(process.env.STRIPE_SECRETE_KEY);
 const cors = require("cors");
 const port = 4000;
 const { MongoClient, ServerApiVersion } = require("mongodb");
@@ -31,7 +32,7 @@ const client = new MongoClient(uri, {
 // middleware
 const verifyToken = (req, res, next) => {
   // console.log(req.headers.authorization);
-  
+
   if (!req.headers.authorization) {
     // console.log('2',req.headers.authorization);
     return res.status(401).send({ message: "unAuthorized from 34" });
@@ -50,7 +51,6 @@ const verifyToken = (req, res, next) => {
     // console.log('8',req.headers.authorization);
     next();
   });
-  
 };
 
 async function run() {
@@ -87,9 +87,8 @@ async function run() {
       if (!findUser) {
         const result = await usersCollection.insertOne(user);
         res.send(result);
-      }
-      else{
-        res.send({message: 'user exist'})
+      } else {
+        res.send({ message: "user exist" });
       }
     });
 
@@ -143,23 +142,41 @@ async function run() {
     });
 
     // check user role from db usercollection
-    app.get("/checkRole/:email",async (req,res)=>{
-      const email = req.params.email
-      const query = {email:email}
-      const result = await usersCollection.findOne(query)
-      res.send(result)
+    app.get("/checkRole/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      res.send(result);
       // console.log(result);
-      
-    }) 
+    });
 
     // get member agreement data for making payment
-    app.get("/apartmentInfo/:email", async (req,res)=>{
-      const email = req.params.email
-      const query = {UserEmail:email}
-      const result = await agreementCollection.findOne(query)
-      res.send(result)
+    app.get("/apartmentInfo/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { UserEmail: email };
+      const result = await agreementCollection.findOne(query);
+      res.send(result);
       // console.log(result);
-    })
+    });
+
+    // payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+
+      const paymentIntent =await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: ['card']
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      });
+      
+      
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
