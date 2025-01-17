@@ -184,6 +184,15 @@ async function run() {
       const resutl = await paymentsCollection.insertOne(history)
       res.send(resutl)
     })
+   
+   
+    // get  payments history from db
+    app.get('/paymentsHistory/:email',async(req,res)=>{
+      const email = req.params.email;
+      const query = {email: email}
+      const resutl = await paymentsCollection.find(query).toArray()
+      res.send(resutl)
+    })
 
 
     // Send a ping to confirm a successful connection
