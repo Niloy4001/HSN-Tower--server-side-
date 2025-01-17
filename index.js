@@ -30,17 +30,27 @@ const client = new MongoClient(uri, {
 
 // middleware
 const verifyToken = (req, res, next) => {
+  // console.log(req.headers.authorization);
+  
   if (!req.headers.authorization) {
-    return res.status(401).send({ message: "forbidden access" });
+    // console.log('2',req.headers.authorization);
+    return res.status(401).send({ message: "unAuthorized from 34" });
   }
+  // console.log('3',req.headers.authorization);
   const token = req.headers.authorization.split(" ")[1];
+  // console.log('4',req.headers.authorization);
   jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+    // console.log('5',req.headers.authorization);
     if (err) {
-      return res.status(401).send({ message: "forbidden access" });
+      // console.log('6',req.headers.authorization);
+      return res.status(403).send({ message: "forbidden access from 39" });
     }
+    // console.log('7',req.headers.authorization);
     req.decoded = decoded;
+    // console.log('8',req.headers.authorization);
     next();
   });
+  
 };
 
 async function run() {
@@ -52,7 +62,10 @@ async function run() {
       .db("HSNTower")
       .collection("apartmentsCollection");
 
-    const usersCollection = client.db("HSNTower").collection("users");
+    const usersCollection = client.db("HSNTower").collection("usersCollection");
+    const agreementCollection = client
+      .db("HSNTower")
+      .collection("agreementCollection");
 
     // jwt related api
     app.post("/jwt", async (req, res) => {
@@ -108,6 +121,24 @@ async function run() {
       });
     });
 
+    // post agreemnet detail on db
+    app.post("/agreement", verifyToken, async (req, res) => {
+      const agreement = req.body;
+      const query = { UserEmail: agreement.UserEmail };
+
+      // add agreement to agreement collection if the agreement of same user not exist
+
+      const finded = await agreementCollection.findOne(query);
+      if (finded === null) {
+        const result = await agreementCollection.insertOne(agreement);
+        res.send(result);
+      } else {
+        res.send({ message: " You can't multiple agreement" });
+      }
+
+      // console.log(agreement);
+      // console.log(finded === null);
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
