@@ -35,7 +35,7 @@ const verifyToken = (req, res, next) => {
 
   if (!req.headers.authorization) {
     // console.log('2',req.headers.authorization);
-    return res.status(401).send({ message: "unAuthorized from 34" });
+    return res.status(401).send({ message: "unAuthorized access" });
   }
   // console.log('3',req.headers.authorization);
   const token = req.headers.authorization.split(" ")[1];
@@ -44,10 +44,10 @@ const verifyToken = (req, res, next) => {
     // console.log('5',req.headers.authorization);
     if (err) {
       // console.log('6',req.headers.authorization);
-      return res.status(403).send({ message: "forbidden access from 39" });
+      return res.status(403).send({ message: "forbidden access" });
     }
     // console.log('7',req.headers.authorization);
-    req.decoded = decoded;
+    req.user = decoded;
     // console.log('8',req.headers.authorization);
     next();
   });
@@ -88,6 +88,34 @@ async function run() {
     const couponsCollection = client
       .db("HSNTower")
       .collection("couponsCollection");
+
+    // verify admin middleware
+    const verifyAdmin = async (req, res, next) => {
+      // console.log('data from verifyToken middleware--->', req.user?.email)
+      const email = req.user?.email;
+      const query = { email:email };
+      const result = await usersCollection.findOne(query);
+      if (!result || result?.role !== "Admin")
+        return res
+          .status(403)
+          .send({ message: "Forbidden Access! Admin Only Actions!" });
+
+      next();
+    };
+    // verify seller middleware
+    const verifyMember = async (req, res, next) => {
+      // console.log('data from verifyToken middleware--->', req.user?.email)
+      const email = req.user?.email;
+      const query = { email:email };
+      const result = await usersCollection.findOne(query);
+      if (!result || result?.role !== "Member")
+        return res
+          .status(403)
+          .send({ message: "Forbidden Access! Member Only Actions!" });
+
+      next();
+    };
+
     // jwt related api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -168,10 +196,10 @@ async function run() {
     });
 
     // get member agreement data for making payment
-    app.get("/apartmentInfo/:email", async (req, res) => {
+    app.get("/apartmentInfo/:email",verifyToken,verifyMember, async (req, res) => {
       const email = req.params.email;
       const query = { UserEmail: email };
-      const result = await agreementCollection.findOne(query);
+      const result = await membersApartmentCollection.findOne(query);
       res.send(result);
       // console.log(result);
     });
@@ -200,7 +228,7 @@ async function run() {
     });
 
     // get  payments history from db
-    app.get("/paymentsHistory/:email", async (req, res) => {
+    app.get("/paymentsHistory/:email",verifyToken,verifyMember, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const resutl = await paymentsCollection.find(query).toArray();
@@ -215,27 +243,43 @@ async function run() {
     });
 
     // chagne a member to user
-    app.patch("/remove/:id", async (req, res) => {
+    app.patch("/remove/:id",verifyToken,verifyAdmin, async (req, res) => {
       const id = req.params.id;
+      const email = req.query?.email;
+      const query = { UserEmail: email };
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: { role: "User" },
       };
+
       const result = await usersCollection.updateOne(filter, updateDoc);
+      const del = await membersApartmentCollection.deleteOne(query);
+
+      console.log(result);
+
+      res.send(result);
+    });
+
+    // chagne a member to user
+    app.delete("/removee/:email", async (req, res) => {
+      const email = req.params.email;
+      const filter = { UserEmail: email };
+      const result = await membersApartmentCollection.deleteOne(filter);
+      // const  = await usersCollection.updateOne(filter, updateDoc);
       // console.log(result);
 
       res.send(result);
     });
 
     // post announcement from admin to db
-    app.post("/addAnnouncement", async (req, res) => {
+    app.post("/addAnnouncement",verifyToken,verifyAdmin, async (req, res) => {
       const announcement = req.body;
       const result = await announcementsCollection.insertOne(announcement);
       res.send(result);
     });
 
     // get all announcement
-    app.get("/announcements", async (req, res) => {
+    app.get("/announcements",verifyToken, async (req, res) => {
       const result = await announcementsCollection.find().toArray();
       res.send(result);
     });
@@ -257,8 +301,8 @@ async function run() {
       }
     });
 
-    // change agreement request status
-    app.get("/changeStatus/:email", async (req, res) => {
+    // change agreement request status while accepting
+    app.get("/changeStatus/:email",verifyToken, async (req, res) => {
       const email = req.params.email;
       const filter = { UserEmail: email };
       const updateDoc = {
@@ -284,6 +328,16 @@ async function run() {
       res.send({ result, updatedRole });
     });
 
+    // change agreement request status while rejecting
+    app.delete("/changeStatus/:email",verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const filter = { UserEmail: email };
+
+      // delete data from agreement collection
+      const result = await agreementCollection.deleteOne(filter);
+      res.send(result);
+    });
+
     // get all coupons from coupons collection
     app.get("/coupons", async (req, res) => {
       const result = await couponsCollection.find().toArray();
@@ -291,14 +345,14 @@ async function run() {
     });
 
     // post a coupon
-    app.post("/coupons", async (req, res) => {
+    app.post("/coupons",verifyToken,verifyAdmin, async (req, res) => {
       const info = req.body;
       const result = await couponsCollection.insertOne(info);
       res.send(result);
     });
 
     // info for admin profile
-    app.get("/adminProfile", async (req, res) => {
+    app.get("/adminProfile",verifyToken,verifyAdmin, async (req, res) => {
       const totalApartments = await apartmentsCollection.countDocuments();
       // total booked apartment or total apartment in member collection or unavailable apartment
       const totalBookedApartment =
@@ -313,16 +367,30 @@ async function run() {
         100 - totalBookedApartmentParcentage
       ).toFixed(2);
 
-
-      const totalUsers = await usersCollection.countDocuments()
+      const totalUsers = await usersCollection.countDocuments();
 
       res.send({
-        totalApartments:totalApartments,
-        available:totalAvailableParcentage,
-        unavailable:totalBookedApartmentParcentage,
-        totalUsers:totalUsers,
-        totalMembers:totalBookedApartment,
+        totalApartments: totalApartments,
+        available: totalAvailableParcentage,
+        unavailable: totalBookedApartmentParcentage,
+        totalUsers: totalUsers,
+        totalMembers: totalBookedApartment,
       });
+    });
+
+    // get member profile
+    app.get("/memeberProfile/:email",verifyToken,verifyMember, async (req, res) => {
+      const email = req.params.email;
+      const query = { UserEmail: email };
+      const result = await membersApartmentCollection.findOne(query);
+      const updatedDoc = {
+        ...result,
+        createdAt: new ObjectId(result._id).getTimestamp(),
+      };
+      // console.log(result._id);
+      // console.log(updatedDoc);
+
+      res.send(updatedDoc);
     });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
