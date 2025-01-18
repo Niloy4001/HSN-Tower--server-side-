@@ -79,6 +79,10 @@ async function run() {
       .db("HSNTower")
       .collection("announcementsCollection");
 
+    // members apartment collection
+    const membersApartmentCollection = client
+      .db("HSNTower")
+      .collection("membersApartmentCollection");
     // jwt related api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -250,6 +254,34 @@ async function run() {
         console.error("Error fetching agreements:", error);
         res.status(500).send({ error: "Failed to fetch agreements" });
       }
+    });
+
+    
+    // change agreement request status
+    app.get("/changeStatus/:email", async (req, res) => {
+      const email = req.params.email;
+      const filter = { UserEmail: email };
+      const updateDoc = {
+        $set: { status: "Checked" },
+      };
+      const result = await agreementCollection.updateOne(filter, updateDoc);
+
+      // add users data to memberscollection
+      const newMemberData = await agreementCollection.findOne(filter);
+      const insertToMembersCollection =
+        await membersApartmentCollection.insertOne(newMemberData);
+
+      // delete data from agreement collection
+      const deleteData = await agreementCollection.deleteOne(filter);
+
+      // change role from users collection
+      const query = { email: email };
+      const updatedDoc = {
+        $set: { role: "Member" },
+      };
+      const updatedRole = await usersCollection.updateOne(query, updatedDoc);
+
+      res.send({ result, updatedRole });
     });
 
     // Send a ping to confirm a successful connection
