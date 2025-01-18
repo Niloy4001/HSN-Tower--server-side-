@@ -234,6 +234,13 @@ async function run() {
       const result =await announcementsCollection.insertOne(announcement)
       res.send(result)
     })
+
+
+    // get all announcement 
+    app.get('/announcements',async(req,res)=>{
+      const result = await announcementsCollection.find().toArray()
+      res.send(result)
+    })
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
