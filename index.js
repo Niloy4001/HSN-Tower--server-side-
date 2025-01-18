@@ -73,6 +73,12 @@ async function run() {
     const paymentsCollection = client
       .db("HSNTower")
       .collection("paymentsCollection");
+    
+    
+      // announcement collection
+    const announcementsCollection = client
+      .db("HSNTower")
+      .collection("announcementsCollection");
 
     // jwt related api
     app.post("/jwt", async (req, res) => {
@@ -221,6 +227,13 @@ async function run() {
       
     })
 
+
+    // post announcement from admin to db
+    app.post('/addAnnouncement', async(req,res)=>{
+      const announcement = req.body;
+      const result =await announcementsCollection.insertOne(announcement)
+      res.send(result)
+    })
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
