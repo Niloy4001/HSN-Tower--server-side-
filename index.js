@@ -7,7 +7,7 @@ const app = express();
 const stripe = require("stripe")(process.env.STRIPE_SECRETE_KEY);
 const cors = require("cors");
 const port = 4000;
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 app.use(
   cors({
@@ -65,10 +65,14 @@ async function run() {
     const usersCollection = client.db("HSNTower").collection("usersCollection");
 
     // agreement collection
-    const agreementCollection = client.db("HSNTower").collection("agreementCollection");
-    
+    const agreementCollection = client
+      .db("HSNTower")
+      .collection("agreementCollection");
+
     // payments details collection
-    const paymentsCollection = client.db("HSNTower").collection("paymentsCollection");
+    const paymentsCollection = client
+      .db("HSNTower")
+      .collection("paymentsCollection");
 
     // jwt related api
     app.post("/jwt", async (req, res) => {
@@ -179,21 +183,43 @@ async function run() {
     });
 
     // save payments history in db
-    app.post('/paymentsHistory',async(req,res)=>{
+    app.post("/paymentsHistory", async (req, res) => {
       const history = req.body;
-      const resutl = await paymentsCollection.insertOne(history)
-      res.send(resutl)
-    })
-   
-   
-    // get  payments history from db
-    app.get('/paymentsHistory/:email',async(req,res)=>{
-      const email = req.params.email;
-      const query = {email: email}
-      const resutl = await paymentsCollection.find(query).toArray()
-      res.send(resutl)
-    })
+      const resutl = await paymentsCollection.insertOne(history);
+      res.send(resutl);
+    });
 
+    // get  payments history from db
+    app.get("/paymentsHistory/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const resutl = await paymentsCollection.find(query).toArray();
+      res.send(resutl);
+    });
+
+    // get all members data from db
+    app.get("/manageMembers", async (req, res) => {
+      const query = { role: "Member" };
+      const result =await usersCollection.find(query).toArray();
+      res.send(result);
+    
+      
+    });
+
+    // chagne a member to user
+    app.patch('/remove/:id',async(req,res)=>{
+      const id  = req.params.id
+      const filter = {_id: new ObjectId(id)}
+      const updateDoc={
+        $set: {role: "User"}
+      }
+      const result = await usersCollection.updateOne(filter,updateDoc)
+      // console.log(result);
+      
+      res.send(result)
+      
+      
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
