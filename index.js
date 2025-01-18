@@ -73,9 +73,8 @@ async function run() {
     const paymentsCollection = client
       .db("HSNTower")
       .collection("paymentsCollection");
-    
-    
-      // announcement collection
+
+    // announcement collection
     const announcementsCollection = client
       .db("HSNTower")
       .collection("announcementsCollection");
@@ -206,41 +205,53 @@ async function run() {
     // get all members data from db
     app.get("/manageMembers", async (req, res) => {
       const query = { role: "Member" };
-      const result =await usersCollection.find(query).toArray();
+      const result = await usersCollection.find(query).toArray();
       res.send(result);
-    
-      
     });
 
     // chagne a member to user
-    app.patch('/remove/:id',async(req,res)=>{
-      const id  = req.params.id
-      const filter = {_id: new ObjectId(id)}
-      const updateDoc={
-        $set: {role: "User"}
-      }
-      const result = await usersCollection.updateOne(filter,updateDoc)
+    app.patch("/remove/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { role: "User" },
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc);
       // console.log(result);
-      
-      res.send(result)
-      
-      
-    })
 
+      res.send(result);
+    });
 
     // post announcement from admin to db
-    app.post('/addAnnouncement', async(req,res)=>{
+    app.post("/addAnnouncement", async (req, res) => {
       const announcement = req.body;
-      const result =await announcementsCollection.insertOne(announcement)
-      res.send(result)
-    })
+      const result = await announcementsCollection.insertOne(announcement);
+      res.send(result);
+    });
 
+    // get all announcement
+    app.get("/announcements", async (req, res) => {
+      const result = await announcementsCollection.find().toArray();
+      res.send(result);
+    });
 
-    // get all announcement 
-    app.get('/announcements',async(req,res)=>{
-      const result = await announcementsCollection.find().toArray()
-      res.send(result)
-    })
+    // Get all agreements for admin action
+    app.get("/agreements", async (req, res) => {
+      try {
+        const result = await agreementCollection.find().toArray();
+
+        // Add createdAt field to each document
+        const updatedResult = result.map((doc) => ({
+          ...doc, // Spread the existing document fields
+          createdAt: new ObjectId(doc._id).getTimestamp(), // Add creation time from _id
+        }));
+        res.send(updatedResult); // Send the modified result
+      } catch (error) {
+        console.error("Error fetching agreements:", error);
+        res.status(500).send({ error: "Failed to fetch agreements" });
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
