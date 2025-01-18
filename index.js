@@ -83,8 +83,8 @@ async function run() {
     const membersApartmentCollection = client
       .db("HSNTower")
       .collection("membersApartmentCollection");
-    
-      // members apartment collection
+
+    // members apartment collection
     const couponsCollection = client
       .db("HSNTower")
       .collection("couponsCollection");
@@ -118,10 +118,6 @@ async function run() {
       // filter functionality
       const minPrice = parseInt(req.query?.min) || 0;
       const maxPrice = parseInt(req.query?.max) || Infinity;
-
-      // if (minPrice && maxPrice) {
-      //   const cursor =
-      // }
 
       // pagination functionality
       const page = parseInt(req.query?.page) || 1;
@@ -261,7 +257,6 @@ async function run() {
       }
     });
 
-
     // change agreement request status
     app.get("/changeStatus/:email", async (req, res) => {
       const email = req.params.email;
@@ -289,20 +284,46 @@ async function run() {
       res.send({ result, updatedRole });
     });
 
-
     // get all coupons from coupons collection
-    app.get("/coupons",async(req,res)=>{
-      const result = await couponsCollection.find().toArray()
-      res.send(result)
-    })
+    app.get("/coupons", async (req, res) => {
+      const result = await couponsCollection.find().toArray();
+      res.send(result);
+    });
+
+    // post a coupon
+    app.post("/coupons", async (req, res) => {
+      const info = req.body;
+      const result = await couponsCollection.insertOne(info);
+      res.send(result);
+    });
+
+    // info for admin profile
+    app.get("/adminProfile", async (req, res) => {
+      const totalApartments = await apartmentsCollection.countDocuments();
+      // total booked apartment or total apartment in member collection or unavailable apartment
+      const totalBookedApartment =
+        await membersApartmentCollection.countDocuments();
+      const totalBookedApartmentParcentage = (
+        (totalBookedApartment * 100) /
+        totalApartments
+      ).toFixed(2);
+      // total available apartment
+      const totalAvailable = totalApartments - totalBookedApartment;
+      const totalAvailableParcentage = (
+        100 - totalBookedApartmentParcentage
+      ).toFixed(2);
 
 
-    // post a coupon 
-    app.post("/coupons",async(req,res)=>{
-      const info = req.body
-      const result = await couponsCollection.insertOne(info)
-      res.send(result)
-    })
+      const totalUsers = await usersCollection.countDocuments()
+
+      res.send({
+        totalApartments:totalApartments,
+        available:totalAvailableParcentage,
+        unavailable:totalBookedApartmentParcentage,
+        totalUsers:totalUsers,
+        totalMembers:totalBookedApartment,
+      });
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
