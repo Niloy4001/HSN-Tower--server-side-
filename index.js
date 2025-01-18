@@ -83,6 +83,11 @@ async function run() {
     const membersApartmentCollection = client
       .db("HSNTower")
       .collection("membersApartmentCollection");
+    
+      // members apartment collection
+    const couponsCollection = client
+      .db("HSNTower")
+      .collection("couponsCollection");
     // jwt related api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -256,7 +261,7 @@ async function run() {
       }
     });
 
-    
+
     // change agreement request status
     app.get("/changeStatus/:email", async (req, res) => {
       const email = req.params.email;
@@ -284,6 +289,20 @@ async function run() {
       res.send({ result, updatedRole });
     });
 
+
+    // get all coupons from coupons collection
+    app.get("/coupons",async(req,res)=>{
+      const result = await couponsCollection.find().toArray()
+      res.send(result)
+    })
+
+
+    // post a coupon 
+    app.post("/coupons",async(req,res)=>{
+      const info = req.body
+      const result = await couponsCollection.insertOne(info)
+      res.send(result)
+    })
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
