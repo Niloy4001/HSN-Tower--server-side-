@@ -392,6 +392,23 @@ async function run() {
 
       res.send(updatedDoc);
     });
+
+
+    // change coupon availability by admin
+    app.patch("/changeAvailability/:id",verifyToken,verifyAdmin,async(req,res)=>{
+      const id = req.params.id
+      const filter = {_id : new ObjectId(id)}
+      const result = await couponsCollection.findOne(filter)
+      const value = result?.availability
+      const updatedDoc = {
+        $set:{ availability: !value }
+      }
+      const changed = await couponsCollection.updateOne(filter,updatedDoc);
+      // console.log(result);
+      console.log(changed);
+      res.send(changed)
+      
+    })
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
