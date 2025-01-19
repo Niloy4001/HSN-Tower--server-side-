@@ -18,7 +18,8 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_pass}@cluster1.hcojg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster1`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster1.hcojg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster1`;
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_pass}@cluster1.hcojg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster1`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -56,7 +57,7 @@ const verifyToken = (req, res, next) => {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // aprtment collection
     const apartmentsCollection = client
       .db("HSNTower")
@@ -93,7 +94,7 @@ async function run() {
     const verifyAdmin = async (req, res, next) => {
       // console.log('data from verifyToken middleware--->', req.user?.email)
       const email = req.user?.email;
-      const query = { email:email };
+      const query = { email: email };
       const result = await usersCollection.findOne(query);
       if (!result || result?.role !== "Admin")
         return res
@@ -106,7 +107,7 @@ async function run() {
     const verifyMember = async (req, res, next) => {
       // console.log('data from verifyToken middleware--->', req.user?.email)
       const email = req.user?.email;
-      const query = { email:email };
+      const query = { email: email };
       const result = await usersCollection.findOne(query);
       if (!result || result?.role !== "Member")
         return res
@@ -196,28 +197,46 @@ async function run() {
     });
 
     // get member agreement data for making payment
-    app.get("/apartmentInfo/:email",verifyToken,verifyMember, async (req, res) => {
-      const email = req.params.email;
-      const query = { UserEmail: email };
-      const result = await membersApartmentCollection.findOne(query);
-      res.send(result);
-      // console.log(result);
-    });
+    app.get(
+      "/apartmentInfo/:email",
+      verifyToken,
+      verifyMember,
+      async (req, res) => {
+        const email = req.params.email;
+        const query = { UserEmail: email };
+        const result = await membersApartmentCollection.findOne(query);
+        res.send(result);
+        // console.log(result);
+      }
+    );
 
     // payment intent
     app.post("/create-payment-intent", async (req, res) => {
-      const { price } = req.body;
+      const { price, discount } = req.body;
       const amount = parseInt(price * 100);
 
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: amount,
-        currency: "usd",
-        payment_method_types: ["card"],
-      });
+      if (discount) {
+        const finalAmount = parseInt(amount - amount * (discount / 100));
 
-      res.send({
-        clientSecret: paymentIntent.client_secret,
-      });
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: finalAmount,
+          currency: "usd",
+          payment_method_types: ["card"],
+        });
+        res.send({
+          clientSecret: paymentIntent.client_secret,
+        });
+      } else {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: "usd",
+          payment_method_types: ["card"],
+        });
+
+        res.send({
+          clientSecret: paymentIntent.client_secret,
+        });
+      }
     });
 
     // save payments history in db
@@ -228,12 +247,17 @@ async function run() {
     });
 
     // get  payments history from db
-    app.get("/paymentsHistory/:email",verifyToken,verifyMember, async (req, res) => {
-      const email = req.params.email;
-      const query = { email: email };
-      const resutl = await paymentsCollection.find(query).toArray();
-      res.send(resutl);
-    });
+    app.get(
+      "/paymentsHistory/:email",
+      verifyToken,
+      verifyMember,
+      async (req, res) => {
+        const email = req.params.email;
+        const query = { email: email };
+        const resutl = await paymentsCollection.find(query).toArray();
+        res.send(resutl);
+      }
+    );
 
     // get all members data from db
     app.get("/manageMembers", async (req, res) => {
@@ -243,7 +267,7 @@ async function run() {
     });
 
     // chagne a member to user
-    app.patch("/remove/:id",verifyToken,verifyAdmin, async (req, res) => {
+    app.patch("/remove/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const email = req.query?.email;
       const query = { UserEmail: email };
@@ -272,14 +296,14 @@ async function run() {
     });
 
     // post announcement from admin to db
-    app.post("/addAnnouncement",verifyToken,verifyAdmin, async (req, res) => {
+    app.post("/addAnnouncement", verifyToken, verifyAdmin, async (req, res) => {
       const announcement = req.body;
       const result = await announcementsCollection.insertOne(announcement);
       res.send(result);
     });
 
     // get all announcement
-    app.get("/announcements",verifyToken, async (req, res) => {
+    app.get("/announcements", verifyToken, async (req, res) => {
       const result = await announcementsCollection.find().toArray();
       res.send(result);
     });
@@ -302,7 +326,7 @@ async function run() {
     });
 
     // change agreement request status while accepting
-    app.get("/changeStatus/:email",verifyToken, async (req, res) => {
+    app.get("/changeStatus/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const filter = { UserEmail: email };
       const updateDoc = {
@@ -329,7 +353,7 @@ async function run() {
     });
 
     // change agreement request status while rejecting
-    app.delete("/changeStatus/:email",verifyToken, async (req, res) => {
+    app.delete("/changeStatus/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const filter = { UserEmail: email };
 
@@ -345,14 +369,14 @@ async function run() {
     });
 
     // post a coupon
-    app.post("/coupons",verifyToken,verifyAdmin, async (req, res) => {
+    app.post("/coupons", verifyToken, verifyAdmin, async (req, res) => {
       const info = req.body;
       const result = await couponsCollection.insertOne(info);
       res.send(result);
     });
 
     // info for admin profile
-    app.get("/adminProfile",verifyToken,verifyAdmin, async (req, res) => {
+    app.get("/adminProfile", verifyToken, verifyAdmin, async (req, res) => {
       const totalApartments = await apartmentsCollection.countDocuments();
       // total booked apartment or total apartment in member collection or unavailable apartment
       const totalBookedApartment =
@@ -379,36 +403,64 @@ async function run() {
     });
 
     // get member profile
-    app.get("/memeberProfile/:email",verifyToken,verifyMember, async (req, res) => {
-      const email = req.params.email;
-      const query = { UserEmail: email };
-      const result = await membersApartmentCollection.findOne(query);
-      const updatedDoc = {
-        ...result,
-        createdAt: new ObjectId(result._id).getTimestamp(),
-      };
-      // console.log(result._id);
-      // console.log(updatedDoc);
+    app.get(
+      "/memeberProfile/:email",
+      verifyToken,
+      verifyMember,
+      async (req, res) => {
+        const email = req.params.email;
+        const query = { UserEmail: email };
+        const result = await membersApartmentCollection.findOne(query);
+        const updatedDoc = {
+          ...result,
+          createdAt: new ObjectId(result._id).getTimestamp(),
+        };
+        // console.log(result._id);
+        // console.log(updatedDoc);
 
-      res.send(updatedDoc);
-    });
-
+        res.send(updatedDoc);
+      }
+    );
 
     // change coupon availability by admin
-    app.patch("/changeAvailability/:id",verifyToken,verifyAdmin,async(req,res)=>{
-      const id = req.params.id
-      const filter = {_id : new ObjectId(id)}
-      const result = await couponsCollection.findOne(filter)
-      const value = result?.availability
-      const updatedDoc = {
-        $set:{ availability: !value }
+    app.patch(
+      "/changeAvailability/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const result = await couponsCollection.findOne(filter);
+        const value = result?.availability;
+        const updatedDoc = {
+          $set: { availability: !value },
+        };
+        const changed = await couponsCollection.updateOne(filter, updatedDoc);
+        // console.log(result);
+        console.log(changed);
+        res.send(changed);
       }
-      const changed = await couponsCollection.updateOne(filter,updatedDoc);
-      // console.log(result);
-      console.log(changed);
-      res.send(changed)
-      
-    })
+    );
+
+    // find coupon
+    app.post("/findCoupon", async (req, res) => {
+      const { coupon } = req.body;
+      const filter = { couponCode: coupon };
+      const finded = await couponsCollection.findOne(filter);
+      if (finded == null) {
+        res.send({ message: "Invalid Coupon" });
+      }
+      if (finded.availability == false) {
+        res.send({ message: "Unavailable" });
+      }
+      if (finded.availability == true) {
+        res.send({
+          message: "available",
+          discount: finded?.discountPercentage,
+        });
+      }
+      console.log(finded);
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
