@@ -11,7 +11,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://need-volunteer-40.netlify.app"],
+    origin: ["http://localhost:5173", "https://hsn-tower-40.netlify.app"],
     credentials: true,
   })
 );
@@ -188,7 +188,7 @@ async function run() {
     });
 
     // check user role from db usercollection
-    app.get("/checkRole/:email", async (req, res) => {
+    app.get("/checkRole/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
@@ -211,40 +211,50 @@ async function run() {
     );
 
     // payment intent
-    app.post("/create-payment-intent", async (req, res) => {
-      const { price, discount } = req.body;
-      const amount = parseInt(price * 100);
+    app.post(
+      "/create-payment-intent",
+      verifyToken,
+      verifyMember,
+      async (req, res) => {
+        const { price, discount } = req.body;
+        const amount = parseInt(price * 100);
 
-      if (discount) {
-        const finalAmount = parseInt(amount - amount * (discount / 100));
+        if (discount) {
+          const finalAmount = parseInt(amount - amount * (discount / 100));
 
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: finalAmount,
-          currency: "usd",
-          payment_method_types: ["card"],
-        });
-        res.send({
-          clientSecret: paymentIntent.client_secret,
-        });
-      } else {
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: amount,
-          currency: "usd",
-          payment_method_types: ["card"],
-        });
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount: finalAmount,
+            currency: "usd",
+            payment_method_types: ["card"],
+          });
+          res.send({
+            clientSecret: paymentIntent.client_secret,
+          });
+        } else {
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount: amount,
+            currency: "usd",
+            payment_method_types: ["card"],
+          });
 
-        res.send({
-          clientSecret: paymentIntent.client_secret,
-        });
+          res.send({
+            clientSecret: paymentIntent.client_secret,
+          });
+        }
       }
-    });
+    );
 
     // save payments history in db
-    app.post("/paymentsHistory", async (req, res) => {
-      const history = req.body;
-      const resutl = await paymentsCollection.insertOne(history);
-      res.send(resutl);
-    });
+    app.post(
+      "/paymentsHistory",
+      verifyToken,
+      verifyMember,
+      async (req, res) => {
+        const history = req.body;
+        const resutl = await paymentsCollection.insertOne(history);
+        res.send(resutl);
+      }
+    );
 
     // get  payments history from db
     app.get(
@@ -260,7 +270,7 @@ async function run() {
     );
 
     // get all members data from db
-    app.get("/manageMembers", async (req, res) => {
+    app.get("/manageMembers", verifyToken, verifyAdmin, async (req, res) => {
       const query = { role: "Member" };
       const result = await usersCollection.find(query).toArray();
       res.send(result);
@@ -285,15 +295,20 @@ async function run() {
     });
 
     // chagne a member to user
-    app.delete("/removee/:email", async (req, res) => {
-      const email = req.params.email;
-      const filter = { UserEmail: email };
-      const result = await membersApartmentCollection.deleteOne(filter);
-      // const  = await usersCollection.updateOne(filter, updateDoc);
-      // console.log(result);
+    app.delete(
+      "/removee/:email",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const email = req.params.email;
+        const filter = { UserEmail: email };
+        const result = await membersApartmentCollection.deleteOne(filter);
+        // const  = await usersCollection.updateOne(filter, updateDoc);
+        // console.log(result);
 
-      res.send(result);
-    });
+        res.send(result);
+      }
+    );
 
     // post announcement from admin to db
     app.post("/addAnnouncement", verifyToken, verifyAdmin, async (req, res) => {
@@ -309,7 +324,7 @@ async function run() {
     });
 
     // Get all agreements for admin action
-    app.get("/agreements", async (req, res) => {
+    app.get("/agreements", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const result = await agreementCollection.find().toArray();
 
@@ -364,6 +379,12 @@ async function run() {
 
     // get all coupons from coupons collection
     app.get("/coupons", async (req, res) => {
+      const result = await couponsCollection.find().toArray();
+      res.send(result);
+    });
+
+    // get all coupons from coupons collection
+    app.get("/couponsForAdmin", verifyToken, verifyAdmin, async (req, res) => {
       const result = await couponsCollection.find().toArray();
       res.send(result);
     });
@@ -443,7 +464,7 @@ async function run() {
     );
 
     // find coupon
-    app.post("/findCoupon", async (req, res) => {
+    app.post("/findCoupon", verifyToken, verifyMember, async (req, res) => {
       const { coupon } = req.body;
       const filter = { couponCode: coupon };
       const finded = await couponsCollection.findOne(filter);
@@ -462,10 +483,10 @@ async function run() {
       console.log(finded);
     });
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
