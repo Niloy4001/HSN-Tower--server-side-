@@ -142,6 +142,7 @@ async function run() {
       }
     });
 
+    
     // get all apartment data
     app.get("/apartments", async (req, res) => {
       // filter functionality
@@ -188,7 +189,7 @@ async function run() {
     });
 
     // check user role from db usercollection
-    app.get("/checkRole/:email", verifyToken, async (req, res) => {
+    app.get("/checkRole/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
@@ -422,6 +423,49 @@ async function run() {
         totalMembers: totalBookedApartment,
       });
     });
+
+    // all info for overview page
+    app.get("/overviewStats", async(req,res)=>{
+      // get all payment data
+      const result = await paymentsCollection.find().toArray();
+// get all aggrement data to show aggrement pending request
+const aggrementData = await agreementCollection.countDocuments();
+      // total payment
+      const totalPayments = await paymentsCollection.countDocuments();
+      // total apartments
+      const totalApartments = await apartmentsCollection.countDocuments();
+      
+      // total booked apartment or total apartment in member collection or unavailable apartment
+      const totalBookedApartment =
+        await membersApartmentCollection.countDocuments();
+     
+      // total available apartment
+      const totalAvailable = totalApartments - totalBookedApartment;
+
+
+      const totalUsers = await usersCollection.countDocuments();
+
+      // const rentData = [];
+      // for (let i = 0; i < result.length; i++) {
+      //   const element = array[i].month;
+        
+        
+        
+      // }
+
+      res.send({
+        totalApartments: totalApartments,
+        available: totalAvailable,
+        unavailable: totalBookedApartment,
+        totalUsers: totalUsers,
+        totalMembers: totalBookedApartment,
+        totalPayments,
+        pendingRequests: aggrementData,
+        paymentsData: result,
+       
+      });
+    })
+
 
     // get member profile
     app.get(
